@@ -1,0 +1,16 @@
+{
+    "Microsoft": {
+        "authority": "https://login.microsoftonline.com/ORG.COM",
+        "application_id": "a guid",
+        "scope": [
+            "https://graph.microsoft.com/.default"
+        ],
+        "secret": "random string",
+        "graph_endpoint": "https://graph.microsoft.com/v1.0",
+        "sync_groups": {
+            "group name from external source": "Azure group GUID"
+        }
+    },
+    "debug": true,
+    "dry_run": true
+}
