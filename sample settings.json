@@ -6,10 +6,14 @@
             "https://graph.microsoft.com/.default"
         ],
         "secret": "random string",
-        "graph_endpoint": "https://graph.microsoft.com/v1.0",
-        "sync_groups": {
-            "group name from external source": "Azure group GUID"
-        }
+        "graph_endpoint": "https://graph.microsoft.com/v1.0"
+    },
+    "CampusCafe": {
+        "report_user": "username",
+        "report_password": "password"
+    },
+    "sync_groups": {
+        "Azure group GUID": "https://reports.domain.com/ReportServer?%2fpath+to+your+report&rs:Format=csv"
     },
     "debug": true,
     "dry_run": true
