@@ -3,3 +3,5 @@ settings.json
 .vscode/*
 main_old.py
 Campus-Cafe-Azure-Group-Sync.code-workspace
+app_cert.pfx
+app_cert.cer

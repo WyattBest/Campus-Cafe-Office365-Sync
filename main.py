@@ -24,8 +24,8 @@ def get_cc_report(report_url):
     )
     r = requests.get(url=report_url, auth=auth)
     r.raise_for_status()
-    
-    r.encoding='utf-8-sig'
+
+    r.encoding = "utf-8-sig"
     reader = csv.DictReader(io.StringIO(r.text))
     data = list(reader)
 
@@ -39,13 +39,25 @@ debug_print(CONFIG)
 
 for k, v in CONFIG["sync_groups"].items():
     # Get list of members from Campus Cafe
-    cc_membership = get_cc_report(v)
+    cc_membership = get_cc_report(v["source"])
+    cc_membership = {m["ID_NUMBER"]: m for m in cc_membership}
     debug_print(cc_membership)
 
     # Get list of members from Graph
-    graph_membership = graph_api.get_group_members(k)
+    graph_membership = graph_api.get_group_members(v["id"])
+    graph_membership = {m["employeeId"]: m for m in graph_membership}
     debug_print(graph_membership)
 
     # Compare lists and make a list of users who are not in Azure group
+    missing = [x for x in cc_membership if x not in graph_membership]
+    debug_print(missing)
 
     # Add missing users to Azure group
+    for m in missing:
+        debug_print(f"Looking up user by employeeId: {m}")
+        user = graph_api.get_user_by_employeeId(m)
+        if user:
+            debug_print(f"Adding user {user['id']} to group {k}")
+            graph_api.add_group_member(k, user["userPrincipalName"])
+        else:
+            debug_print(f"User not found: {m}")
