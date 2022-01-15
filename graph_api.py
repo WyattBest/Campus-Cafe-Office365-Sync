@@ -2,10 +2,8 @@ import json
 import requests
 import graph_auth
 import subprocess
+from config import CONFIG
 
-# Read config file
-with open("settings.json") as config_file:
-    CONFIG = json.load(config_file)
 graph_endpoint = CONFIG["Microsoft"]["graph_endpoint"]
 
 # Create persistent HTTP session without Content-Type header
@@ -19,9 +17,42 @@ sess_graph_j.headers.update(
 )
 
 
-def debug_print(x):
+# Create a PowerShell script to be executed at the end of the program.
+# Temporary hack until Graph API supports modifying distribution groups.
+# See https://docs.microsoft.com/en-us/powershell/exchange/app-only-auth-powershell-v2?view=exchange-ps#step-2-assign-api-permissions-to-the-application
+# https://adamtheautomator.com/exchange-online-v2/#Assigning_an_Azure_AD_Role_to_the_Application
+script_ps = open("output_tasks.ps1", "w")
+script_ps.write(
+    "$cert_pw = ConvertTo-SecureString '{}' -AsPlainText -Force;\n".format(
+        CONFIG["Microsoft"]["certificate_password"]
+    )
+)
+script_ps.write(
+    "Connect-ExchangeOnline -AppId '{}' -CertificateFilePath '{}' -CertificatePassword $cert_pw -Organization '{}';\n".format(
+        CONFIG["Microsoft"]["application_id"],
+        CONFIG["Microsoft"]["certificate"],
+        CONFIG["Microsoft"]["organization"],
+    )
+)
+
+
+def deinit(pending_changes):
+    """Save and execute the PowerShell shim script."""
+    script_ps.write("Exit;")
+    script_ps.close()
+    if not pending_changes:
+        print("No changes to apply.")
+    elif CONFIG["dry_run"]:
+        print(
+            "Dry run: No changes were made. See output_tasks.ps1 for proposed changes."
+        )
+    else:
+        subprocess.run(["powershell.exe", "-File", "output_tasks.ps1"])
+
+
+def verbose_print(x):
     """Attempt to print JSON without altering it, serializable objects as JSON, and anything else as default."""
-    if CONFIG["debug"] and len(x) > 0:
+    if CONFIG["verbose"] and len(x) > 0:
         if isinstance(x, str):
             print(x)
         else:
@@ -73,6 +104,26 @@ def get_group_members(group_id):
     return members
 
 
+def add_group_member(group_id, upn):
+    """Adds a user to a group via a PowerShell shim."""
+
+    script_ps.write(
+        "Add-DistributionGroupMember -Identity '{}' -Member '{}';\n".format(
+            group_id, upn
+        )
+    )
+
+
+def remove_group_member(group_id, upn):
+    """Removes a user from a group via a PowerShell shim."""
+
+    script_ps.write(
+        "Remove-DistributionGroupMember -Identity '{}' -Member '{}' -Confirm:$false;\n".format(
+            group_id, upn
+        )
+    )
+
+
 # def add_group_member(group_id, user_id):
 #     """Adds a user to a group. Returns HTTP status code; 204 indicates success."""
 
@@ -111,26 +162,22 @@ def get_group_members(group_id):
 #         return r.status_code
 
 
-def add_group_member(group_id, user_id):
-    """Adds a user to a group via a PowerShell shim. Temporary hack until Graph API supports modifying distribution groups."""
-
-    # See https://docs.microsoft.com/en-us/powershell/exchange/app-only-auth-powershell-v2?view=exchange-ps#step-2-assign-api-permissions-to-the-application
-    # https://adamtheautomator.com/exchange-online-v2/#Assigning_an_Azure_AD_Role_to_the_Application
-    if CONFIG["dry_run"]:
-        return None
-    else:
-        subprocess.run(
-            [
-                "powershell.exe",
-                "$cert_pw = ConvertTo-SecureString '{}' -AsPlainText -Force; \
-                Connect-ExchangeOnline -AppId '{}' -CertificateFilePath '{}' -CertificatePassword $cert_pw -Organization '{}'; \
-                Add-DistributionGroupMember -Identity '{}' -Member '{}'".format(
-                    CONFIG["Microsoft"]["certificate_password"],
-                    CONFIG["Microsoft"]["application_id"],
-                    CONFIG["Microsoft"]["certificate"],
-                    CONFIG["Microsoft"]["organization"],
-                    group_id,
-                    user_id,
-                ),
-            ]
-        )
+# Create a PowerShell session and connect it to the Exchange Online server
+# process_ps = Popen("powershell.exe", stdin=PIPE, stdout=PIPE)
+# process_ps.stdin.write(
+#     "$cert_pw = ConvertTo-SecureString '{}' -AsPlainText -Force;".format(
+#         CONFIG["Microsoft"]["certificate_password"]
+#     ).encode("utf-8")
+# )
+# process_ps.stdin.flush()
+# print(process_ps.stdout.readlines(5))
+# process_ps.stdin.write(
+#     "Connect-ExchangeOnline -AppId '{}' -CertificateFilePath '{}' -CertificatePassword $cert_pw -Organization '{}';".format(
+#         CONFIG["Microsoft"]["application_id"],
+#         CONFIG["Microsoft"]["certificate"],
+#         CONFIG["Microsoft"]["organization"],
+#     ).encode(
+#         "utf-8"
+#     )
+# )
+# process_ps.stdin.flush()

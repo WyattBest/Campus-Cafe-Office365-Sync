@@ -1,12 +1,13 @@
 import requests
-import graph_api
 import json, io, csv
 from requests_ntlm2 import HttpNtlmAuth
+import graph_api
+from config import CONFIG
 
 
-def debug_print(x):
+def verbose_print(x):
     """Attempt to print JSON without altering it, serializable objects as JSON, and anything else as default."""
-    if CONFIG["debug"] and len(x) > 0:
+    if CONFIG["verbose"] and len(x) > 0:
         if isinstance(x, str):
             print(x)
         else:
@@ -18,7 +19,6 @@ def debug_print(x):
 
 def get_cc_report(report_url):
     """Get data from Campus Cafe's Reporting Services and return list of dicts."""
-    debug_print(f"Getting report from: {report_url}")
     auth = HttpNtlmAuth(
         CONFIG["CampusCafe"]["report_user"], CONFIG["CampusCafe"]["report_password"]
     )
@@ -32,32 +32,61 @@ def get_cc_report(report_url):
     return data
 
 
-# Read config file
-with open("settings.json") as config_file:
-    CONFIG = json.load(config_file)
-debug_print(CONFIG)
+# Main body of the program
+pending_changes = False
 
 for k, v in CONFIG["sync_groups"].items():
     # Get list of members from Campus Cafe
+    verbose_print(f"Getting report from: {v['source']}")
     cc_membership = get_cc_report(v["source"])
     cc_membership = {m["ID_NUMBER"]: m for m in cc_membership}
-    debug_print(cc_membership)
+    verbose_print("Campus Cafe membership:" + str(len(cc_membership)))
+    verbose_print(cc_membership)
 
     # Get list of members from Graph
     graph_membership = graph_api.get_group_members(v["id"])
     graph_membership = {m["employeeId"]: m for m in graph_membership}
-    debug_print(graph_membership)
+    verbose_print(graph_membership)
 
-    # Compare lists and make a list of users who are not in Azure group
+    # Compare lists
     missing = [x for x in cc_membership if x not in graph_membership]
-    debug_print(missing)
+    verbose_print("Missing users: " + str(len(missing)))
+    verbose_print(
+        [
+            f"{cc_membership[x]['ID_NUMBER']}: {cc_membership[x]['FIRST_NAME']} {cc_membership[x]['LAST_NAME']}"
+            for x in missing
+        ]
+    )
+    extra = [x for x in graph_membership if x not in cc_membership]
+    verbose_print("Extra users: " + str(len(extra)))
+    verbose_print(
+        [
+            f"{graph_membership[x]['userPrincipalName']}: {graph_membership[x]['displayName']}"
+            for x in extra
+        ]
+    )
 
     # Add missing users to Azure group
     for m in missing:
-        debug_print(f"Looking up user by employeeId: {m}")
+        verbose_print(f"Looking up user by employeeId: {m}")
         user = graph_api.get_user_by_employeeId(m)
         if user:
-            debug_print(f"Adding user {user['id']} to group {k}")
+            pending_changes = True
+            verbose_print(f"Adding user {user['userPrincipalName']} to group {k}")
             graph_api.add_group_member(k, user["userPrincipalName"])
         else:
-            debug_print(f"User not found: {m}")
+            verbose_print(f"User not found: {m}")
+
+    # Remove extra users from Azure group
+    for m in extra:
+        verbose_print(f"Looking up user by employeeId: {m}")
+        user = graph_api.get_user_by_employeeId(m)
+        if user:
+            pending_changes = True
+            verbose_print(f"Removing user {user['userPrincipalName']} from group {k}")
+            graph_api.remove_group_member(k, user["userPrincipalName"])
+        else:
+            verbose_print(f"User not found: {m}")
+
+
+graph_api.deinit(pending_changes)
