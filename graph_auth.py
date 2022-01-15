@@ -5,6 +5,7 @@ import msal
 
 # Load settings from disk
 oauth_settings = json.load(open("settings.json"))["Microsoft"]
+scopes = ["https://graph.microsoft.com/.default"]
 
 # Create a preferably long-lived app instance which maintains a token cache.
 app = msal.ConfidentialClientApplication(
@@ -21,11 +22,11 @@ def get_auth_header():
     # Check in-memory cache for existing token
     # Since we are looking for token for the current app, NOT for an end user,
     # we give account parameter as None.
-    result = app.acquire_token_silent(oauth_settings["scope"], account=None)
+    result = app.acquire_token_silent(scopes, account=None)
 
     # If no token in cache, get a new one
     if not result:
-        result = app.acquire_token_for_client(scopes=oauth_settings["scope"])
+        result = app.acquire_token_for_client(scopes)
 
     if "access_token" in result:
         return result["token_type"] + " " + result["access_token"]

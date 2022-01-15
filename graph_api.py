@@ -62,20 +62,27 @@ def verbose_print(x):
                 print(x)
 
 
-def get_user_by_employeeId(employeeId):
-    """Returns a user by employeeId."""
+def get_user(employee_id, upn):
+    """Look up a user by employeeId or UPN."""
 
-    parameters = {
-        "$select": "id,displayName,mail,userType,userPrincipalName,employeeId"
-    }
-    r = sess_graph.get(
-        graph_endpoint + f"/users?$filter=employeeId eq '{employeeId}'",
-        params=parameters,
-    )
-    r.raise_for_status()
-    response = json.loads(r.text)
-    if len(response["value"]) > 0:
-        return response["value"][0]
+    if upn:
+        r = sess_graph.get(f"{graph_endpoint}/users/{upn}")
+        r.raise_for_status()
+        r = json.loads(r.text)
+        if r["userPrincipalName"]:
+            return r["userPrincipalName"]
+    elif employee_id:
+        parameters = {
+            "$select": "id,displayName,mail,userType,userPrincipalName,employeeId"
+        }
+        r = sess_graph.get(
+            f"{graph_endpoint}/users?$filter=employeeId eq '{employee_id}'",
+            params=parameters,
+        )
+        r.raise_for_status()
+        response = json.loads(r.text)
+        if len(response["value"]) > 0:
+            return response["value"][0]
     else:
         return None
 

@@ -39,13 +39,13 @@ for k, v in CONFIG["sync_groups"].items():
     # Get list of members from Campus Cafe
     verbose_print(f"Getting report from: {v['source']}")
     cc_membership = get_cc_report(v["source"])
-    cc_membership = {m["ID_NUMBER"]: m for m in cc_membership}
+    cc_membership = {m["USERNAME"].lower(): m for m in cc_membership}
     verbose_print("Campus Cafe membership:" + str(len(cc_membership)))
     verbose_print(cc_membership)
 
     # Get list of members from Graph
     graph_membership = graph_api.get_group_members(v["id"])
-    graph_membership = {m["employeeId"]: m for m in graph_membership}
+    graph_membership = {m["userPrincipalName"].lower(): m for m in graph_membership}
     verbose_print(graph_membership)
 
     # Compare lists
@@ -68,25 +68,20 @@ for k, v in CONFIG["sync_groups"].items():
 
     # Add missing users to Azure group
     for m in missing:
-        verbose_print(f"Looking up user by employeeId: {m}")
-        user = graph_api.get_user_by_employeeId(m)
+        verbose_print(f"Looking up user {m}, {cc_membership[m]['ID_NUMBER']}")
+        user = graph_api.get_user(m, cc_membership[m]["USERNAME"])
         if user:
             pending_changes = True
-            verbose_print(f"Adding user {user['userPrincipalName']} to group {k}")
-            graph_api.add_group_member(k, user["userPrincipalName"])
+            verbose_print(f"Adding user {user} to group {k}")
+            graph_api.add_group_member(k, user)
         else:
             verbose_print(f"User not found: {m}")
 
     # Remove extra users from Azure group
-    for m in extra:
-        verbose_print(f"Looking up user by employeeId: {m}")
-        user = graph_api.get_user_by_employeeId(m)
-        if user:
-            pending_changes = True
-            verbose_print(f"Removing user {user['userPrincipalName']} from group {k}")
-            graph_api.remove_group_member(k, user["userPrincipalName"])
-        else:
-            verbose_print(f"User not found: {m}")
+    for user in extra:
+        pending_changes = True
+        verbose_print(f"Removing user {user} from group {k}")
+        graph_api.remove_group_member(k, user)
 
 
 graph_api.deinit(pending_changes)

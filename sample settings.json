@@ -1,10 +1,10 @@
 {
     "Microsoft": {
         "authority": "https://login.microsoftonline.com/ORG.COM",
+        "organization": "ORG.COM",
         "application_id": "a guid",
-        "scope": [
-            "https://graph.microsoft.com/.default"
-        ],
+        "certificate": "app_cert.pfx",
+        "certificate_password": "password",
         "secret": "random string",
         "graph_endpoint": "https://graph.microsoft.com/v1.0"
     },
@@ -13,8 +13,11 @@
         "report_password": "password"
     },
     "sync_groups": {
-        "Azure group GUID": "https://reports.domain.com/ReportServer?%2fpath+to+your+report&rs:Format=csv"
+        "Distribution group Name (not Display Name)": {
+            "id": "Azure group GUID",
+            "source": "https://reports.domain.com/ReportServer?%2fpath+to+your+report&rs:Format=csv"
+        }
     },
-    "debug": true,
+    "verbose": true,
     "dry_run": true
 }
