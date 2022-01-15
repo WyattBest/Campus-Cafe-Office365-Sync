@@ -2,6 +2,7 @@ import json
 import requests
 import graph_auth
 import subprocess
+from os import getcwd
 from config import CONFIG
 
 graph_endpoint = CONFIG["Microsoft"]["graph_endpoint"]
@@ -20,7 +21,7 @@ sess_graph_j.headers.update(
 # Create a PowerShell script to be executed at the end of the program.
 # Temporary hack until Graph API supports modifying distribution groups.
 # See https://docs.microsoft.com/en-us/powershell/exchange/app-only-auth-powershell-v2?view=exchange-ps#step-2-assign-api-permissions-to-the-application
-# https://adamtheautomator.com/exchange-online-v2/#Assigning_an_Azure_AD_Role_to_the_Application
+# and https://adamtheautomator.com/exchange-online-v2/#Assigning_an_Azure_AD_Role_to_the_Application
 script_ps = open("output_tasks.ps1", "w")
 script_ps.write(
     "$cert_pw = ConvertTo-SecureString '{}' -AsPlainText -Force;\n".format(
@@ -30,7 +31,7 @@ script_ps.write(
 script_ps.write(
     "Connect-ExchangeOnline -AppId '{}' -CertificateFilePath '{}' -CertificatePassword $cert_pw -Organization '{}';\n".format(
         CONFIG["Microsoft"]["application_id"],
-        CONFIG["Microsoft"]["certificate"],
+        getcwd() + '\\' + CONFIG["Microsoft"]["certificate"],
         CONFIG["Microsoft"]["organization"],
     )
 )
