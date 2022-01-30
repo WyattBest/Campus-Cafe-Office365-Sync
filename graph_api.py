@@ -31,7 +31,7 @@ script_ps.write(
 script_ps.write(
     "Connect-ExchangeOnline -AppId '{}' -CertificateFilePath '{}' -CertificatePassword $cert_pw -Organization '{}';\n".format(
         CONFIG["Microsoft"]["application_id"],
-        getcwd() + '\\' + CONFIG["Microsoft"]["certificate"],
+        getcwd() + "\\" + CONFIG["Microsoft"]["certificate"],
         CONFIG["Microsoft"]["organization"],
     )
 )
@@ -45,7 +45,7 @@ def deinit(pending_changes):
         print("No changes to apply.")
     elif CONFIG["dry_run"]:
         print(
-            "Dry run: No changes were made. See output_tasks.ps1 for proposed changes."
+            "Dry run: No changes were made. See output_tasks.ps1 for proposed distribution group changes."
         )
     else:
         subprocess.run(["powershell.exe", "-File", "output_tasks.ps1"])
@@ -66,24 +66,26 @@ def verbose_print(x):
 def get_user(employee_id, upn):
     """Look up a user by employeeId or UPN."""
 
+    parameters = {"$select": "id,mail,userPrincipalName,employeeId"}
+
+    # Todo: Make a proper try/catch block for handling 404s
     if upn:
-        r = sess_graph.get(f"{graph_endpoint}/users/{upn}")
+        r = sess_graph.get(f"{graph_endpoint}/users/{upn}", params=parameters)
+        if r.status_code == 404:
+            return None
         r.raise_for_status()
         r = json.loads(r.text)
-        if r["userPrincipalName"]:
-            return r["userPrincipalName"]
+        return r
     elif employee_id:
-        parameters = {
-            "$select": "id,displayName,mail,userType,userPrincipalName,employeeId"
-        }
         r = sess_graph.get(
             f"{graph_endpoint}/users?$filter=employeeId eq '{employee_id}'",
             params=parameters,
         )
+        if r.status_code == 404:
+            return None
         r.raise_for_status()
         response = json.loads(r.text)
-        if len(response["value"]) > 0:
-            return response["value"][0]
+        return r
     else:
         return None
 
@@ -112,7 +114,7 @@ def get_group_members(group_id):
     return members
 
 
-def add_group_member(group_id, upn):
+def add_dist_group_member(group_id, upn):
     """Adds a user to a group via a PowerShell shim."""
 
     script_ps.write(
@@ -122,7 +124,7 @@ def add_group_member(group_id, upn):
     )
 
 
-def remove_group_member(group_id, upn):
+def remove_dist_group_member(group_id, upn):
     """Removes a user from a group via a PowerShell shim."""
 
     script_ps.write(
@@ -132,60 +134,39 @@ def remove_group_member(group_id, upn):
     )
 
 
-# def add_group_member(group_id, user_id):
-#     """Adds a user to a group. Returns HTTP status code; 204 indicates success."""
+def add_group_member(group_id, user_id):
+    """Adds a user to a group. Returns HTTP status code; 204 indicates success."""
 
-#     body = {"@odata.id": f"{graph_endpoint}/directoryObjects/{user_id}"}
+    body = {"@odata.id": f"{graph_endpoint}/directoryObjects/{user_id}"}
 
-#     if config["dry_run"]:
-#         return None
-#     else:
-#         try:
-#             r = sess_graph_j.post(
-#                 graph_endpoint + f"/groups/{group_id}/members/$ref",
-#                 data=json.dumps(body),
-#             )
-#             debug_print(r.text)
-#             r.raise_for_status()
-#         except requests.HTTPError:
-#             # Why does this 404 sometimes? User licensing issue?
-#             if r.status_code == 404:
-#                 debug_print(r.text)
-#             else:
-#                 raise
-#         return r.status_code
-
-
-# def remove_group_member(group_id, user_id):
-#     """Removes the specified user from the specified group. Returns HTTP status code; 204 indicates success."""
-
-#     if config["dry_run"]:
-#         return None
-#     else:
-#         r = sess_graph.delete(
-#             f"{graph_endpoint}/groups/{group_id}/members/{user_id}/$ref"
-#         )
-#         debug_print(r.text)
-#         r.raise_for_status()
-#         return r.status_code
+    if CONFIG["dry_run"]:
+        return None
+    else:
+        try:
+            r = sess_graph_j.post(
+                graph_endpoint + f"/groups/{group_id}/members/$ref",
+                data=json.dumps(body),
+            )
+            # debug_print(r.text)
+            r.raise_for_status()
+        except requests.HTTPError:
+            # Why does this 404 sometimes? User licensing issue?
+            if r.status_code == 404:
+                print(r.text)
+            else:
+                raise
+        return r.status_code
 
 
-# Create a PowerShell session and connect it to the Exchange Online server
-# process_ps = Popen("powershell.exe", stdin=PIPE, stdout=PIPE)
-# process_ps.stdin.write(
-#     "$cert_pw = ConvertTo-SecureString '{}' -AsPlainText -Force;".format(
-#         CONFIG["Microsoft"]["certificate_password"]
-#     ).encode("utf-8")
-# )
-# process_ps.stdin.flush()
-# print(process_ps.stdout.readlines(5))
-# process_ps.stdin.write(
-#     "Connect-ExchangeOnline -AppId '{}' -CertificateFilePath '{}' -CertificatePassword $cert_pw -Organization '{}';".format(
-#         CONFIG["Microsoft"]["application_id"],
-#         CONFIG["Microsoft"]["certificate"],
-#         CONFIG["Microsoft"]["organization"],
-#     ).encode(
-#         "utf-8"
-#     )
-# )
-# process_ps.stdin.flush()
+def remove_group_member(group_id, user_id):
+    """Removes the specified user from the specified group. Returns HTTP status code; 204 indicates success."""
+
+    if CONFIG["dry_run"]:
+        return None
+    else:
+        r = sess_graph.delete(
+            f"{graph_endpoint}/groups/{group_id}/members/{user_id}/$ref"
+        )
+        # debug_print(r.text)
+        r.raise_for_status()
+        return r.status_code

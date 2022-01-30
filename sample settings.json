@@ -14,6 +14,7 @@
     },
     "sync_groups": {
         "Distribution group Name (not Display Name)": {
+            "type:": "distribution OR security",
             "id": "Azure group GUID",
             "source": "https://reports.domain.com/ReportServer?%2fpath+to+your+report&rs:Format=csv"
         }

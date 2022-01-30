@@ -66,22 +66,40 @@ for k, v in CONFIG["sync_groups"].items():
         ]
     )
 
-    # Add missing users to Azure group
-    for m in missing:
-        verbose_print(f"Looking up user {m}, {cc_membership[m]['ID_NUMBER']}")
-        user = graph_api.get_user(m, cc_membership[m]["USERNAME"])
-        if user:
-            pending_changes = True
-            verbose_print(f"Adding user {user} to group {k}")
-            graph_api.add_group_member(k, user)
-        else:
-            verbose_print(f"User not found: {m}")
+    if v["type"] == "distribution":
+        # Add missing users to Azure distribution group
+        for m in missing:
+            verbose_print(f"Looking up user {m}, {cc_membership[m]['ID_NUMBER']}")
+            user = graph_api.get_user(m, cc_membership[m]["USERNAME"])
+            if user:
+                pending_changes = True
+                verbose_print(f"Adding user {user} to distribution group {k}")
+                graph_api.add_dist_group_member(k, user["userPrincipalName"])
+            else:
+                verbose_print(f"User not found: {m}")
 
-    # Remove extra users from Azure group
-    for user in extra:
-        pending_changes = True
-        verbose_print(f"Removing user {user} from group {k}")
-        graph_api.remove_group_member(k, user)
+        # Remove extra users from Azure distribution group
+        for user in extra:
+            pending_changes = True
+            verbose_print(f"Removing user {user} from distribution group {k}")
+            graph_api.remove_dist_group_member(k, user)
+    elif v["type"] == "security":
+        # Add missing users to Azure group
+        for m in missing:
+            verbose_print(f"Looking up user {m}, {cc_membership[m]['ID_NUMBER']}")
+            user = graph_api.get_user(m, cc_membership[m]["USERNAME"])
+            if user:
+                verbose_print(f"Adding user {user['userPrincipalName']} to security group {k}")
+                graph_api.add_group_member(v["id"], user["id"])
+            else:
+                verbose_print(f"User not found: {m}")
+
+        # Remove extra users from Azure group
+        for user in extra:
+            verbose_print(f"Removing user {user} from security group {k}")
+            # Transform UPN to GUID. Would be better to save ID's when gettig group members originally.
+            user = graph_api.get_user(None, user)
+            graph_api.remove_group_member(v["id"], user["id"])
 
 
 graph_api.deinit(pending_changes)
