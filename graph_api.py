@@ -1,7 +1,7 @@
 import json
 import requests
 import graph_auth
-import subprocess
+# import subprocess
 from os import getcwd
 from config import CONFIG
 
@@ -23,6 +23,7 @@ sess_graph_j.headers.update(
 # See https://docs.microsoft.com/en-us/powershell/exchange/app-only-auth-powershell-v2?view=exchange-ps#step-2-assign-api-permissions-to-the-application
 # and https://adamtheautomator.com/exchange-online-v2/#Assigning_an_Azure_AD_Role_to_the_Application
 script_ps = open("output_tasks.ps1", "w")
+script_ps.write("Start-Transcript 'PowerShell_Transcript.log';\n")
 script_ps.write(
     "$cert_pw = ConvertTo-SecureString '{}' -AsPlainText -Force;\n".format(
         CONFIG["Microsoft"]["certificate_password"]
@@ -43,12 +44,22 @@ def deinit(pending_changes):
     script_ps.close()
     if not pending_changes:
         print("No changes to apply.")
+        # Wipe out the script to Task Manager doens't waste time running it
+        open("output_tasks.ps1", "w").close()
     elif CONFIG["dry_run"]:
         print(
             "Dry run: No changes were made. See output_tasks.ps1 for proposed distribution group changes."
         )
-    else:
-        subprocess.run(["powershell.exe", "-File", "output_tasks.ps1"])
+    # else:
+        # For some reason this doesn't work if Python is run via Task Scheduler.
+        # Workaround: Add second step to Task Scheduler to run PowerShell script.
+        # subprocess.run(
+        #     [
+        #         "powershell.exe",
+        #         "-ExecutionPolicy Unrestricted",
+        #         "-File output_tasks.ps1",
+        #     ]
+        # )
 
 
 def verbose_print(x):
