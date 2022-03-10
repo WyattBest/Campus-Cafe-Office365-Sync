@@ -1,6 +1,5 @@
 import requests
 import json, io, csv
-from requests_ntlm2 import HttpNtlmAuth
 import graph_api
 from config import CONFIG
 
@@ -19,8 +18,9 @@ def verbose_print(x):
 
 def get_cc_report(report_url):
     """Get data from Campus Cafe's Reporting Services and return list of dicts."""
-    auth = HttpNtlmAuth(
-        CONFIG["CampusCafe"]["report_user"], CONFIG["CampusCafe"]["report_password"]
+    auth = (
+        CONFIG["CampusCafe"]["report_user"],
+        CONFIG["CampusCafe"]["report_password"],
     )
     r = requests.get(url=report_url, auth=auth)
     r.raise_for_status()
@@ -89,7 +89,9 @@ for k, v in CONFIG["sync_groups"].items():
             verbose_print(f"Looking up user {m}, {cc_membership[m]['ID_NUMBER']}")
             user = graph_api.get_user(m, cc_membership[m]["USERNAME"])
             if user:
-                verbose_print(f"Adding user {user['userPrincipalName']} to security group {k}")
+                verbose_print(
+                    f"Adding user {user['userPrincipalName']} to security group {k}"
+                )
                 graph_api.add_group_member(v["id"], user["id"])
             else:
                 verbose_print(f"User not found: {m}")
