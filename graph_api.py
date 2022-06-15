@@ -1,6 +1,7 @@
 import json
 import requests
 import graph_auth
+
 # import subprocess
 from os import getcwd
 from config import CONFIG
@@ -50,16 +51,16 @@ def deinit(pending_changes):
         print(
             "Dry run: No changes were made. See output_tasks.ps1 for proposed distribution group changes."
         )
-    # else:
-        # For some reason this doesn't work if Python is run via Task Scheduler.
-        # Workaround: Add second step to Task Scheduler to run PowerShell script.
-        # subprocess.run(
-        #     [
-        #         "powershell.exe",
-        #         "-ExecutionPolicy Unrestricted",
-        #         "-File output_tasks.ps1",
-        #     ]
-        # )
+    # For some reason this doesn't work if Python is run via Task Scheduler.
+    # Workaround: Add second step to Task Scheduler to run PowerShell script.
+    #  else:
+    #     subprocess.run(
+    #         [
+    #             "powershell.exe",
+    #             "-ExecutionPolicy Unrestricted",
+    #             "-File output_tasks.ps1",
+    #         ]
+    #     )
 
 
 def verbose_print(x):
@@ -102,7 +103,7 @@ def get_user(employee_id, upn):
 
 
 def get_group_members(group_id):
-    """Return a list of users in a group."""
+    """Return a list of users objects (not groups) in a group. Do not expand child groups."""
 
     parameters = {
         "$select": "id,displayName,mail,userType,userPrincipalName,employeeId"
@@ -122,7 +123,11 @@ def get_group_members(group_id):
         r = json.loads(r.text)
         members.extend(r["value"])
 
-    return members
+    members_filtered = [
+        m for m in members if m["@odata.type"] == "#microsoft.graph.user"
+    ]
+
+    return members_filtered
 
 
 def add_dist_group_member(group_id, upn):
